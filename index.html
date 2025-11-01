@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bonus Tracker Pro — Capital Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f8f9fa;
+  --card: #fff;
+  --text: #222;
+  --accent: #007bff;
+}
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--bg);
+  margin: 0;
+  padding: 20px;
+  color: var(--text);
+}
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 24px;
+  font-weight: 700;
+}
+.container {
+  max-width: 600px;
+  margin: auto;
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  padding: 20px;
+}
+label {
+  display: block;
+  font-weight: 600;
+  margin-top: 10px;
+}
+input, button, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+}
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+button:hover {
+  opacity: 0.9;
+}
+.summary {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+.entry-list {
+  margin-top: 20px;
+}
+.entry {
+  display: flex;
+  justify-content: space-between;
+  background: #f1f3f5;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 5px;
+  font-size: 14px;
+}
+.clear-btn {
+  background: crimson;
+  color: #fff;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+</style>
+</head>
+<body>
+<h1>Bonus Tracker Pro — Capital Tracker</h1>
+<div class="container">
+  <label>Profit:</label>
+  <input type="number" id="profitInput" placeholder="Add Profit (DH)">
+  <button id="addProfitBtn">Add Profit</button>
+
+  <label>Capital:</label>
+  <input type="number" id="capitalInput" placeholder="Add Capital (DH)">
+  <button id="addCapitalBtn">Add Capital</button>
+
+  <label>Capital Chemise:</label>
+  <input type="number" id="capitalChemiseInput" placeholder="Add Capital Chemise (DH)">
+  <button id="addCapitalChemiseBtn">Add Capital Chemise</button>
+
+  <label>Filter by month:</label>
+  <input type="month" id="filterMonth">
+  <button id="applyFilterBtn">Apply</button>
+
+  <div class="summary" id="summary">Loading...</div>
+
+  <h3>Entries</h3>
+  <div class="entry-list" id="entryList"></div>
+
+  <button class="clear-btn" id="deleteCapitalBtn">🗑️ Clear Capital</button>
+  <button class="clear-btn" id="deleteCapitalChemiseBtn">🗑️ Clear Capital Chemise</button>
+</div>
+
+<script>
+const profitInput = document.getElementById("profitInput");
+const capitalInput = document.getElementById("capitalInput");
+const capitalChemiseInput = document.getElementById("capitalChemiseInput");
+const filterMonth = document.getElementById("filterMonth");
+const applyFilterBtn = document.getElementById("applyFilterBtn");
+const addProfitBtn = document.getElementById("addProfitBtn");
+const addCapitalBtn = document.getElementById("addCapitalBtn");
+const addCapitalChemiseBtn = document.getElementById("addCapitalChemiseBtn");
+const summary = document.getElementById("summary");
+const entryList = document.getElementById("entryList");
+const deleteCapitalBtn = document.getElementById("deleteCapitalBtn");
+const deleteCapitalChemiseBtn = document.getElementById("deleteCapitalChemiseBtn");
+
+let state = JSON.parse(localStorage.getItem("bonusState")) || {
+  profits: [],
+  capitalEntries: [],
+  capitalChemise: []
+};
+
+function save() {
+  localStorage.setItem("bonusState", JSON.stringify(state));
+}
+
+function render() {
+  const month = filterMonth.value;
+  const filteredProfits = month ? state.profits.filter(p => p.date.startsWith(month)) : state.profits;
+  const filteredCapitals = month ? state.capitalEntries.filter(p => p.date.startsWith(month)) : state.capitalEntries;
+  const filteredChemise = month ? state.capitalChemise.filter(p => p.date.startsWith(month)) : state.capitalChemise;
+
+  const totalProfit = filteredProfits.reduce((a, b) => a + b.value, 0);
+  const totalCapital = filteredCapitals.reduce((a, b) => a + b.value, 0);
+  const totalChemise = filteredChemise.reduce((a, b) => a + b.value, 0);
+  const totalFinal = totalProfit - (totalCapital + totalChemise);
+
+  summary.innerHTML = `
+    💰 Profit Total: ${totalProfit} DH<br>
+    🧾 Capital Total: ${totalCapital} DH<br>
+    👕 Capital Chemise: ${totalChemise} DH<br>
+    📊 <strong>Total Earned: ${totalFinal} DH</strong>
+  `;
+
+  entryList.innerHTML = "";
+  [...filteredProfits.map(p=>({...p,type:"Profit"})),
+   ...filteredCapitals.map(p=>({...p,type:"Capital"})),
+   ...filteredChemise.map(p=>({...p,type:"Chemise"}))]
+   .sort((a,b)=>new Date(b.date)-new Date(a.date))
+   .forEach(entry=>{
+    const div=document.createElement("div");
+    div.className="entry";
+    div.innerHTML=`<span>${entry.type}</span><span>${entry.value} DH</span>`;
+    entryList.appendChild(div);
+  });
+}
+
+addProfitBtn.onclick = () => {
+  const value = parseFloat(profitInput.value);
+  if (!profitInput.value.trim() || isNaN(value) || value <= 0) {
+    alert("Sme7 lia, khasak tdkhl ra9m sahih akbar mn 0.");
+    return;
+  }
+  state.profits.push({ value, date: new Date().toISOString().slice(0,10) });
+  profitInput.value = "";
+  save();
+  render();
+};
+
+addCapitalBtn.onclick = () => {
+  const value = parseFloat(capitalInput.value);
+  if (!capitalInput.value.trim() || isNaN(value) || value <= 0) {
+    alert("Sme7 lia, khasak tdkhl ra9m sahih akbar mn 0.");
+    return;
+  }
+  state.capitalEntries.push({ value, date: new Date().toISOString().slice(0,10) });
+  capitalInput.value = "";
+  save();
+  render();
+};
+
+addCapitalChemiseBtn.onclick = () => {
+  const value = parseFloat(capitalChemiseInput.value);
+  if (!capitalChemiseInput.value.trim() || isNaN(value) || value <= 0) {
+    alert("Sme7 lia, khasak tdkhl ra9m sahih akbar mn 0.");
+    return;
+  }
+  state.capitalChemise.push({ value, date: new Date().toISOString().slice(0,10) });
+  capitalChemiseInput.value = "";
+  save();
+  render();
+};
+ 
+applyFilterBtn.onclick = render;
+
+deleteCapitalBtn.onclick = () => {
+  if(!confirm('Bghiti tmsa7 Capital b2 kaml?')) return;
+  state.capitalEntries = [];
+  save();
+  render();
+};
+
+deleteCapitalChemiseBtn.onclick = () => {
+  if(!confirm('Bghiti tmsa7 Capital Chemise kaml?')) return;
+  state.capitalChemise = [];
+  save();
+  render();
+};
+
+// Default month filter
+const now = new Date();
+const currentMonth = now.toISOString().slice(0, 7);
+filterMonth.value = currentMonth;
+
+render();
+</script>
+</body>
+</html>
